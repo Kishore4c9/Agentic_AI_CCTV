@@ -1,0 +1,9 @@
+paho-mqtt==2.1.0
+ultralytics==8.3.145
+opencv-python==4.11.0.86
+pyyaml==6.0.2
+
+[dev]
+hypothesis==6.141.1
+pytest==8.3.5
+pytest-asyncio==0.25.3

@@ -1,0 +1,15 @@
+Metadata-Version: 2.4
+Name: agentic-cctv
+Version: 0.1.0
+Summary: Agentic AI CCTV Monitoring Framework — edge detection, MQTT streaming, VLM reasoning, and agentic orchestration
+License: Proprietary
+Requires-Python: >=3.9
+Description-Content-Type: text/markdown
+Requires-Dist: paho-mqtt==2.1.0
+Requires-Dist: ultralytics==8.3.145
+Requires-Dist: opencv-python==4.11.0.86
+Requires-Dist: pyyaml==6.0.2
+Provides-Extra: dev
+Requires-Dist: hypothesis==6.141.1; extra == "dev"
+Requires-Dist: pytest==8.3.5; extra == "dev"
+Requires-Dist: pytest-asyncio==0.25.3; extra == "dev"

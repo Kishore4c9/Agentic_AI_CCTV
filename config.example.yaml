@@ -1,0 +1,125 @@
+# =============================================================================
+# Agentic AI CCTV Monitoring Framework — Example Configuration
+# =============================================================================
+#
+# This is a documented example configuration file for the single-machine
+# Windows deployment profile using NVIDIA Cosmos as the VLM backend and a
+# local Mosquitto MQTT broker on localhost:1883.
+#
+# Copy this file to `config.yaml` and edit the values to match your setup.
+# At minimum, replace the VLM API key placeholder with your real key.
+#
+# For full documentation see the design document in:
+#   .kiro/specs/agentic-ai-cctv-monitoring/design.md
+# =============================================================================
+
+# ---------------------------------------------------------------------------
+# Deployment Profile
+# ---------------------------------------------------------------------------
+# Determines how the system is deployed. Options:
+#   - single-machine    : All components on one Windows PC (v1 default)
+#   - multi-machine     : Edge nodes + remote MQTT broker + processing server
+#   - edge-cloud-hybrid : Edge nodes with store-and-forward to cloud
+deployment_profile: single-machine
+
+# ---------------------------------------------------------------------------
+# MQTT Broker
+# ---------------------------------------------------------------------------
+# Connection settings for the MQTT event broker.
+# In single-machine mode a local Mosquitto instance is expected on localhost.
+mqtt:
+  host: localhost          # Broker hostname or IP address
+  port: 1883              # Broker port (1883 plain, 8883 TLS)
+  use_tls: false          # Enable TLS encryption (set true for production)
+  ca_cert: null           # Path to CA certificate (required when use_tls is true)
+  client_cert: null       # Path to client certificate (mutual TLS)
+  client_key: null        # Path to client private key (mutual TLS)
+  username: null          # MQTT username (null for anonymous)
+  password: null          # MQTT password (null for anonymous)
+
+# ---------------------------------------------------------------------------
+# VLM (Vision-Language Model) Backend
+# ---------------------------------------------------------------------------
+# Configures which VLM service analyses events that pass both detection and
+# context gates. Supported backends: cosmos, gpt4o, claude3, gemini15.
+vlm:
+  backend: cosmos                                    # VLM provider to use
+  api_key: "YOUR_NVIDIA_COSMOS_API_KEY_HERE"         # Replace with your real API key
+  endpoint: "https://integrate.api.nvidia.com/v1"    # NVIDIA NIM API endpoint
+  timeout_seconds: 30                                # Max seconds to wait for VLM response
+
+# ---------------------------------------------------------------------------
+# Cameras
+# ---------------------------------------------------------------------------
+# List of camera sources. Each entry configures one camera's connection,
+# detection parameters, and tracking algorithm.
+cameras:
+  - camera_id: cam-lobby-01                          # Unique identifier for this camera
+    uri: "rtsp://192.168.1.100:554/stream1"          # RTSP URL, USB index (e.g. "0"), or file path
+    tenant_id: tenant-acme                           # Tenant this camera belongs to
+    site_id: site-hq                                 # Site this camera belongs to
+    confidence_threshold: 0.7                        # Minimum detection confidence (0.0–1.0)
+    monitored_classes:                               # Object classes to detect
+      - person
+      - vehicle
+    inference_runtime: pytorch                       # Inference backend: pytorch or tensorrt
+    model_path: "./models/yolov8n.pt"                # Path to the YOLO model weights
+    tracker_algorithm: deepsort                      # Tracking algorithm: deepsort or bytetrack
+    frame_skip: 3                                    # Process every Nth frame (1 = every frame)
+
+  - camera_id: cam-parking-02                        # Second camera with video snippet mode
+    uri: "rtsp://192.168.1.101:554/stream1"          # RTSP URL for parking camera
+    tenant_id: tenant-acme                           # Tenant this camera belongs to
+    site_id: site-hq                                 # Site this camera belongs to
+    confidence_threshold: 0.6                        # Minimum detection confidence (0.0–1.0)
+    monitored_classes:                               # Object classes to detect
+      - person
+      - vehicle
+    inference_runtime: pytorch                       # Inference backend: pytorch or tensorrt
+    model_path: "./models/yolov8n.pt"                # Path to the YOLO model weights
+    tracker_algorithm: deepsort                      # Tracking algorithm: deepsort or bytetrack
+    frame_skip: 5                                    # Process every Nth frame (1 = every frame)
+    vlm_input_mode: video                            # VLM input: "image" (default) or "video"
+    vlm_video_duration_seconds: 10                   # Video snippet duration in seconds (1–60)
+
+# ---------------------------------------------------------------------------
+# Storage
+# ---------------------------------------------------------------------------
+# Database and file storage paths. In single-machine mode, SQLite and
+# ChromaDB are used as zero-dependency embedded databases.
+storage:
+  timeseries_db: sqlite                              # Time-series backend: sqlite, influxdb, timescaledb
+  timeseries_path: "./data/events.db"                # SQLite database file path
+  vector_db: chromadb                                # Vector DB backend: chromadb, pinecone, weaviate
+  vector_path: "./data/vectors"                      # ChromaDB persistence directory
+  frame_crop_path: "./data/crops"                    # Directory for encrypted frame crops
+  frame_crop_encryption_key: ""                      # Base64-encoded AES-256 key (generate before use)
+  retention:
+    raw_events_days: 90                              # Keep raw events for 90 days
+    aggregated_events_days: 365                      # Keep aggregated data for 1 year
+    frame_crops_hours: 72                            # Auto-delete frame crops after 72 hours
+
+# ---------------------------------------------------------------------------
+# Alerts
+# ---------------------------------------------------------------------------
+# Alert delivery channels and deduplication settings.
+alerts:
+  channels:                                          # Enabled delivery channels
+    - push
+    - webhook
+  webhook_url: "https://hooks.example.com/cctv"      # Webhook endpoint URL
+  cooldown:
+    default_seconds: 60                              # Default cooldown between duplicate alerts
+    per_type_overrides:                              # Override cooldown per alert type (seconds)
+      intrusion: 30
+      fire: 10
+
+# ---------------------------------------------------------------------------
+# Security
+# ---------------------------------------------------------------------------
+# Security and multi-tenancy settings. In v1 single-machine mode, TLS and
+# OAuth are disabled by default. Enable them for production deployments.
+security:
+  tls_enabled: false                                 # Enforce TLS 1.3 for all network comms
+  oauth_enabled: false                               # Require OAuth 2.0 for API access
+  tenant_isolation: true                             # Enforce strict multi-tenant data isolation

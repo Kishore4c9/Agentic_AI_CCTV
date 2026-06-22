@@ -1,0 +1,380 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CCTV Monitoring Dashboard</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #1a1a2e; color: #e0e0e0; min-height: 100vh;
+        }
+        header {
+            background: #16213e; padding: 1rem 2rem; display: flex;
+            justify-content: space-between; align-items: center;
+            border-bottom: 2px solid #0f3460;
+        }
+        header h1 { font-size: 1.4rem; color: #e94560; }
+        header .status { font-size: 0.85rem; color: #7f8c8d; }
+        .container { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; padding: 1rem; }
+        .panel {
+            background: #16213e; border-radius: 8px; padding: 1rem;
+            border: 1px solid #0f3460;
+        }
+        .panel h2 {
+            font-size: 1rem; color: #e94560; margin-bottom: 0.75rem;
+            padding-bottom: 0.5rem; border-bottom: 1px solid #0f3460;
+        }
+        .panel.full-width { grid-column: 1 / -1; }
+        /* Camera health cards */
+        .camera-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 0.5rem; }
+        .camera-card {
+            background: #1a1a2e; border-radius: 6px; padding: 0.75rem;
+            border: 1px solid #0f3460;
+        }
+        .camera-card .cam-id { font-weight: 600; font-size: 0.9rem; }
+        .camera-card .cam-status {
+            display: inline-block; padding: 2px 8px; border-radius: 10px;
+            font-size: 0.75rem; margin-top: 4px;
+        }
+        .cam-status.online { background: #27ae60; color: #fff; }
+        .cam-status.offline { background: #e74c3c; color: #fff; }
+        .cam-status.degraded { background: #f39c12; color: #fff; }
+        .cam-metrics { font-size: 0.75rem; color: #95a5a6; margin-top: 6px; }
+        /* Event/alert lists */
+        .item-list { max-height: 300px; overflow-y: auto; }
+        .item-row {
+            padding: 0.5rem; border-bottom: 1px solid #0f3460;
+            font-size: 0.8rem; display: flex; justify-content: space-between;
+            align-items: center;
+        }
+        .item-row:last-child { border-bottom: none; }
+        .item-row .meta { color: #95a5a6; font-size: 0.7rem; }
+        .item-row .type-badge {
+            padding: 2px 6px; border-radius: 4px; font-size: 0.7rem;
+            background: #0f3460; color: #e0e0e0;
+        }
+        .threat-high { background: #e74c3c !important; }
+        .threat-medium { background: #f39c12 !important; }
+        .threat-low { background: #27ae60 !important; }
+        /* Alert action buttons */
+        .alert-actions { display: flex; gap: 4px; }
+        .alert-actions button {
+            padding: 2px 8px; border: none; border-radius: 3px;
+            font-size: 0.7rem; cursor: pointer; color: #fff;
+        }
+        .btn-ack { background: #27ae60; }
+        .btn-dismiss { background: #7f8c8d; }
+        .btn-escalate { background: #e74c3c; }
+        .btn-ack:hover { background: #2ecc71; }
+        .btn-dismiss:hover { background: #95a5a6; }
+        .btn-escalate:hover { background: #c0392b; }
+        /* Rule set management */
+        .rule-controls { display: flex; gap: 0.5rem; margin-bottom: 0.75rem; align-items: center; }
+        .rule-controls input, .rule-controls select {
+            padding: 6px 10px; border-radius: 4px; border: 1px solid #0f3460;
+            background: #1a1a2e; color: #e0e0e0; font-size: 0.8rem;
+        }
+        .rule-controls button {
+            padding: 6px 12px; border: none; border-radius: 4px;
+            background: #e94560; color: #fff; cursor: pointer; font-size: 0.8rem;
+        }
+        .rule-controls button:hover { background: #c0392b; }
+        .version-list { max-height: 200px; overflow-y: auto; }
+        .version-row {
+            padding: 0.4rem 0.5rem; border-bottom: 1px solid #0f3460;
+            font-size: 0.8rem; display: flex; justify-content: space-between;
+            align-items: center;
+        }
+        .version-row .active-badge {
+            background: #27ae60; color: #fff; padding: 1px 6px;
+            border-radius: 3px; font-size: 0.7rem;
+        }
+        .version-row button {
+            padding: 2px 8px; border: none; border-radius: 3px;
+            background: #0f3460; color: #e0e0e0; cursor: pointer; font-size: 0.7rem;
+        }
+        .version-row button:hover { background: #e94560; }
+        /* Prompt input */
+        .prompt-form { display: flex; flex-direction: column; gap: 0.5rem; }
+        .prompt-form textarea {
+            width: 100%; min-height: 80px; padding: 8px; border-radius: 4px;
+            border: 1px solid #0f3460; background: #1a1a2e; color: #e0e0e0;
+            font-size: 0.85rem; resize: vertical;
+        }
+        .prompt-form .prompt-row { display: flex; gap: 0.5rem; align-items: center; }
+        .prompt-form input {
+            flex: 1; padding: 6px 10px; border-radius: 4px;
+            border: 1px solid #0f3460; background: #1a1a2e; color: #e0e0e0;
+            font-size: 0.8rem;
+        }
+        .prompt-form button {
+            padding: 6px 16px; border: none; border-radius: 4px;
+            background: #e94560; color: #fff; cursor: pointer; font-size: 0.85rem;
+        }
+        .prompt-form button:hover { background: #c0392b; }
+        .prompt-result {
+            padding: 0.5rem; background: #1a1a2e; border-radius: 4px;
+            font-size: 0.8rem; border: 1px solid #0f3460; display: none;
+        }
+        .prompt-result.visible { display: block; }
+        .empty-state { color: #7f8c8d; font-size: 0.85rem; text-align: center; padding: 2rem; }
+        .refresh-btn {
+            padding: 4px 10px; border: 1px solid #0f3460; border-radius: 4px;
+            background: transparent; color: #e0e0e0; cursor: pointer; font-size: 0.8rem;
+        }
+        .refresh-btn:hover { background: #0f3460; }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>CCTV Monitoring Dashboard</h1>
+        <div class="status">
+            <span id="last-refresh">Last refresh: --</span>
+            <button class="refresh-btn" onclick="refreshAll()">Refresh</button>
+        </div>
+    </header>
+
+    <div class="container">
+        <!-- Camera Health Panel -->
+        <div class="panel full-width">
+            <h2>Camera Health</h2>
+            <div id="camera-grid" class="camera-grid">
+                <div class="empty-state">Loading cameras...</div>
+            </div>
+        </div>
+
+        <!-- Live Event Feed -->
+        <div class="panel">
+            <h2>Live Event Feed</h2>
+            <div id="event-list" class="item-list">
+                <div class="empty-state">Loading events...</div>
+            </div>
+        </div>
+
+        <!-- Alert Management -->
+        <div class="panel">
+            <h2>Alert Management</h2>
+            <div id="alert-list" class="item-list">
+                <div class="empty-state">Loading alerts...</div>
+            </div>
+        </div>
+
+        <!-- Rule Set Management -->
+        <div class="panel">
+            <h2>Rule Set Management</h2>
+            <div class="rule-controls">
+                <input type="text" id="rule-camera-id" placeholder="Camera ID" value="cam-01" />
+                <button onclick="loadRules()">Load Rules</button>
+            </div>
+            <div id="rule-info" style="font-size:0.8rem; margin-bottom:0.5rem; color:#95a5a6;"></div>
+            <div id="version-list" class="version-list">
+                <div class="empty-state">Enter a camera ID and click Load Rules</div>
+            </div>
+        </div>
+
+        <!-- Prompt Configuration -->
+        <div class="panel">
+            <h2>Prompt Configuration</h2>
+            <div class="prompt-form">
+                <textarea id="prompt-text" placeholder="Enter a natural language monitoring prompt, e.g. 'Alert me when a person is detected after 10pm'"></textarea>
+                <div class="prompt-row">
+                    <input type="text" id="prompt-cameras" placeholder="Camera IDs (comma-separated)" value="cam-01" />
+                    <button onclick="submitPrompt()">Compile</button>
+                </div>
+                <div id="prompt-result" class="prompt-result"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+    const API_BASE = '/api/dashboard';
+
+    async function fetchJSON(url, options) {
+        try {
+            const resp = await fetch(url, options);
+            return await resp.json();
+        } catch (e) {
+            console.error('Fetch error:', url, e);
+            return null;
+        }
+    }
+
+    // --- Camera Health ---
+    async function loadCameras() {
+        const data = await fetchJSON(`${API_BASE}/cameras`);
+        const grid = document.getElementById('camera-grid');
+        if (!data || !data.cameras || data.cameras.length === 0) {
+            grid.innerHTML = '<div class="empty-state">No cameras tracked</div>';
+            return;
+        }
+        grid.innerHTML = data.cameras.map(cam => {
+            const metrics = cam.metrics
+                ? `<div class="cam-metrics">CPU: ${cam.metrics.cpu_percent}% | Mem: ${cam.metrics.memory_percent}% | Latency: ${cam.metrics.inference_latency_ms}ms</div>`
+                : '<div class="cam-metrics">No metrics available</div>';
+            return `<div class="camera-card">
+                <div class="cam-id">${cam.camera_id}</div>
+                <span class="cam-status ${cam.status}">${cam.status}</span>
+                ${metrics}
+                <div class="cam-metrics">${cam.last_heartbeat ? 'Last: ' + new Date(cam.last_heartbeat).toLocaleTimeString() : 'Never seen'}</div>
+            </div>`;
+        }).join('');
+    }
+
+    // --- Events ---
+    async function loadEvents() {
+        const data = await fetchJSON(`${API_BASE}/events?limit=50`);
+        const list = document.getElementById('event-list');
+        if (!data || !data.events || data.events.length === 0) {
+            list.innerHTML = '<div class="empty-state">No events</div>';
+            return;
+        }
+        list.innerHTML = data.events.map(ev => `
+            <div class="item-row">
+                <div>
+                    <strong>${ev.object_type}</strong> on ${ev.camera_id}
+                    <div class="meta">${ev.timestamp} | conf: ${(ev.confidence * 100).toFixed(1)}%</div>
+                </div>
+                <span class="type-badge">${ev.object_type}</span>
+            </div>
+        `).join('');
+    }
+
+    // --- Alerts ---
+    async function loadAlerts() {
+        const data = await fetchJSON(`${API_BASE}/alerts?limit=50`);
+        const list = document.getElementById('alert-list');
+        if (!data || !data.alerts || data.alerts.length === 0) {
+            list.innerHTML = '<div class="empty-state">No alerts</div>';
+            return;
+        }
+        list.innerHTML = data.alerts.map(al => `
+            <div class="item-row">
+                <div>
+                    <strong>${al.alert_type}</strong>
+                    <span class="type-badge threat-${al.threat_level}">${al.threat_level}</span>
+                    <div class="meta">${al.camera_id} | ${al.created_at}</div>
+                    ${al.description ? '<div class="meta">' + al.description + '</div>' : ''}
+                </div>
+                <div class="alert-actions">
+                    <button class="btn-ack" onclick="alertAction('${al.alert_id}','acknowledge')">Ack</button>
+                    <button class="btn-dismiss" onclick="alertAction('${al.alert_id}','dismiss')">Dismiss</button>
+                    <button class="btn-escalate" onclick="alertAction('${al.alert_id}','escalate')">Escalate</button>
+                </div>
+            </div>
+        `).join('');
+    }
+
+    async function alertAction(alertId, action) {
+        const data = await fetchJSON(`${API_BASE}/alerts/${alertId}/action`, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({action})
+        });
+        if (data && data.status === 'ok') {
+            alert(`Alert ${alertId}: ${action} successful`);
+        }
+    }
+
+    // --- Rules ---
+    async function loadRules() {
+        const cameraId = document.getElementById('rule-camera-id').value.trim();
+        if (!cameraId) return;
+        const data = await fetchJSON(`${API_BASE}/rules?camera_id=${encodeURIComponent(cameraId)}`);
+        const list = document.getElementById('version-list');
+        const info = document.getElementById('rule-info');
+
+        if (!data) {
+            list.innerHTML = '<div class="empty-state">Failed to load rules</div>';
+            return;
+        }
+
+        info.textContent = data.active_ruleset
+            ? `Active: ${data.active_ruleset.version_id} (${data.active_ruleset.rules.length} rules)`
+            : 'No active ruleset';
+
+        if (!data.versions || data.versions.length === 0) {
+            list.innerHTML = '<div class="empty-state">No rule versions found</div>';
+            return;
+        }
+
+        list.innerHTML = data.versions.map(v => `
+            <div class="version-row">
+                <div>
+                    ${v.version_id}
+                    ${v.is_active ? '<span class="active-badge">active</span>' : ''}
+                    <div class="meta">${v.created_at}</div>
+                </div>
+                ${!v.is_active ? `<button onclick="rollbackRule('${cameraId}','${v.version_id}')">Rollback</button>` : ''}
+            </div>
+        `).join('');
+    }
+
+    async function rollbackRule(cameraId, versionId) {
+        const data = await fetchJSON(`${API_BASE}/rules/rollback`, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({camera_id: cameraId, version_id: versionId})
+        });
+        if (data && data.status === 'ok') {
+            alert(`Rolled back to ${versionId}. New version: ${data.new_version_id}`);
+            loadRules();
+        }
+    }
+
+    // --- Prompt ---
+    async function submitPrompt() {
+        const prompt = document.getElementById('prompt-text').value.trim();
+        const camerasStr = document.getElementById('prompt-cameras').value.trim();
+        const resultDiv = document.getElementById('prompt-result');
+
+        if (!prompt || !camerasStr) {
+            resultDiv.className = 'prompt-result visible';
+            resultDiv.textContent = 'Please enter a prompt and camera IDs.';
+            return;
+        }
+
+        const cameraIds = camerasStr.split(',').map(s => s.trim()).filter(Boolean);
+        resultDiv.className = 'prompt-result visible';
+        resultDiv.textContent = 'Compiling...';
+
+        const data = await fetchJSON(`${API_BASE}/prompts`, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({prompt, camera_ids: cameraIds})
+        });
+
+        if (!data) {
+            resultDiv.textContent = 'Failed to compile prompt.';
+            return;
+        }
+
+        if (data.error) {
+            resultDiv.textContent = `Error: ${data.error}`;
+            return;
+        }
+
+        resultDiv.innerHTML = `
+            <strong>Status:</strong> ${data.status}<br>
+            <strong>Confidence:</strong> ${(data.confidence * 100).toFixed(1)}%<br>
+            <strong>Rules generated:</strong> ${data.rules_count}<br>
+            <strong>Explanation:</strong> ${data.explanation}
+        `;
+    }
+
+    // --- Refresh all ---
+    function refreshAll() {
+        loadCameras();
+        loadEvents();
+        loadAlerts();
+        document.getElementById('last-refresh').textContent =
+            'Last refresh: ' + new Date().toLocaleTimeString();
+    }
+
+    // Auto-refresh every 10 seconds
+    refreshAll();
+    setInterval(refreshAll, 10000);
+    </script>
+</body>
+</html>
